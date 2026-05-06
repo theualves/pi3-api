@@ -31,7 +31,7 @@ model Curso {
   categoria    String
   tipoCurso    String
   duracao      String
-  metaHoras Int
+  metaHoras Int @default(0)
   status       String   @default("Ativo")
   createdAt    DateTime @default(now())
 
@@ -52,7 +52,7 @@ model Aluno {
   cursoId String
   curso   Curso  @relation("CursoAlunos", fields: [cursoId], references: [id]) // 👈 AQUI
 
-  turma        Turma
+  turma        Turma?
   periodo      Int
   cargaExigida Int
 

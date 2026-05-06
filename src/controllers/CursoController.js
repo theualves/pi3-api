@@ -33,6 +33,7 @@ export const criarCurso = async (req, res) => {
   const { nome, tipoFormacao, metaHoras, statusInicial } = req.body;
 
   const validationErrors = [];
+  
   if (!isNonEmptyString(nome)) {
     validationErrors.push({ field: "nome", message: "Nome é obrigatório." });
   }

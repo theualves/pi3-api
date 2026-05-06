@@ -1,12 +1,78 @@
 import { prisma } from "../lib/prisma.js";
 import crypto from "crypto";
-import bcrypt from "bcrypt"; // Importado para proteger as senhas
+import bcrypt from "bcrypt"; 
 import {
   isNonEmptyString,
   isValidEmail,
+  toInt,
   sendValidationError,
 } from "../utils/validation.js";
 import { handleControllerError } from "../utils/apiErrors.js";
+
+export const cadastrarAluno = async (req, res) => {
+  // Recebe os campos que o seu Front-end já possui
+  const { nome, email, senha, cpf, cursoId, periodo } = req.body;
+
+  const validationErrors = [];
+  if (!isNonEmptyString(nome))
+    validationErrors.push({ field: "nome", message: "Nome é obrigatório." });
+  if (!isValidEmail(email))
+    validationErrors.push({ field: "email", message: "E-mail inválido." });
+  if (!isNonEmptyString(senha))
+    validationErrors.push({ field: "senha", message: "Senha é obrigatória." });
+  if (!isNonEmptyString(cpf))
+    validationErrors.push({ field: "cpf", message: "CPF é obrigatório." });
+
+  if (validationErrors.length > 0)
+    return sendValidationError(res, validationErrors);
+
+  try {
+    // Criptografa a senha para o aluno conseguir logar depois
+    const senhaHash = await bcrypt.hash(senha.trim(), 10);
+
+    // Usa transação: ou cria os dois (Usuário e Aluno) ou não cria nada
+    const resultado = await prisma.$transaction(async (tx) => {
+      // 1. Cria o Usuário de acesso
+      const usuario = await tx.usuario.create({
+        data: {
+          nome: nome.trim(),
+          email: email.trim(),
+          senha: senhaHash,
+          tipo: "ALUNO",
+          cursoId: cursoId,
+          status: "Ativo",
+        },
+      });
+
+      // 2. Cria os dados acadêmicos na tabela Aluno
+      const aluno = await tx.aluno.create({
+        data: {
+          cpf: cpf.trim(),
+          usuarioId: usuario.id,
+          cursoId: cursoId,
+          periodo: toInt(periodo) || 1,
+          cargaExigida: 100, // Valor padrão enquanto não vem do front
+          turma: null, // Agora permitido pela sua migration (opcional)
+        },
+      });
+
+      return { usuario, aluno };
+    });
+
+    res.status(201).json({
+      message: "Aluno cadastrado com sucesso!",
+      idUsuario: resultado.usuario.id,
+      idAluno: resultado.aluno.id,
+    });
+  } catch (error) {
+    console.error("ERRO AO CADASTRAR ALUNO:", error);
+    return handleControllerError(
+      res,
+      error,
+      "Erro ao cadastrar aluno. Verifique se CPF ou E-mail já existem.",
+    );
+  }
+};
 
 // Criar Usuário (POST)
 export const criarUsuario = async (req, res) => {
