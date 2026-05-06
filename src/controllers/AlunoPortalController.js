@@ -12,6 +12,8 @@ import {
   atualizarSolicitacaoDoAluno,
   excluirSolicitacaoDoAluno,
 } from "../models/alunoPortalModel.js";
+import { prisma } from "../lib/prisma.js";
+
 
 const CATEGORIAS_VALIDAS = new Set(["ENSINO", "PESQUISA", "EXTENSAO"]);
 const STATUS_VALIDOS = new Set(["PENDENTE", "APROVADA", "REJEITADA"]);
@@ -99,11 +101,24 @@ const formatarSolicitacao = (atividade) => ({
   podeExcluir: STATUS_EDITAVEIS.has(atividade.status),
 });
 
-const garantirAluno = async (alunoId, res) => {
-  const aluno = await buscarAlunoPorId(alunoId);
+// Ajuste para encontrar o aluno usando o ID que o Front já tem (usuarioId)
+const garantirAluno = async (idDaMochila, res) => {
+  // Tenta buscar o aluno pelo usuarioId (o ID que está no seu localStorage)
+  const aluno = await prisma.aluno.findFirst({
+    where: {
+      OR: [
+        { id: idDaMochila },       // Caso seja o ID de Aluno
+        { usuarioId: idDaMochila } // Caso seja o ID de Usuário (o seu caso atual!)
+      ]
+    },
+    include: {
+      usuario: { select: { id: true, nome: true, email: true } },
+      curso: true
+    }
+  });
 
   if (!aluno) {
-    res.status(404).json({ error: "Aluno não encontrado." });
+    res.status(404).json({ error: "Aluno não encontrado com o ID fornecido." });
     return null;
   }
 
