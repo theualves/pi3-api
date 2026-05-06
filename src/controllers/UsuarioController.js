@@ -122,7 +122,8 @@ export const listarUsuarios = async (req, res) => {
         cursoId: isNonEmptyString(cursoId) ? cursoId.trim() : undefined,
       },
       include: {
-        curso: { select: { nome: true } }
+        curso: { select: { nome: true } },
+        aluno: true // 👈 ADICIONE ESTA LINHA para o CPF e Período aparecerem no Front!
       },
       orderBy: { createdAt: "desc" },
     });

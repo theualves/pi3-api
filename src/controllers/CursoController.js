@@ -69,7 +69,8 @@ export const criarCurso = async (req, res) => {
 
 export const editarCurso = async (req, res) => {
   const { id } = req.params;
-  const { nome, categoria, tipoCurso, duracao, cargaHoraria, status } = req.body;
+  // Ajustado para receber os nomes que vêm do seu Front
+  const { nome, categoria, tipoFormacao, duracao, metaHoras, statusInicial } = req.body;
 
   if (!isNonEmptyString(id)) {
     return sendValidationError(res, [{ field: "id", message: "ID obrigatório." }]);
@@ -78,10 +79,14 @@ export const editarCurso = async (req, res) => {
   const data = {};
   if (nome) data.nome = nome.trim();
   if (categoria) data.categoria = categoria.trim();
-  if (tipoCurso) data.tipoCurso = tipoCurso.trim();
+  if (tipoFormacao) data.tipoCurso = tipoFormacao.trim(); // Mapeia para tipoCurso
   if (duracao) data.duracao = duracao.trim();
-  if (cargaHoraria) data.cargaHoraria = toInt(cargaHoraria);
-  if (status) data.status = status.trim();
+  if (statusInicial) data.status = statusInicial.trim(); // Mapeia para status
+  
+  if (metaHoras !== undefined) {
+    const parsed = toInt(metaHoras);
+    if (parsed !== null) data.metaHoras = parsed; // Mapeia para metaHoras
+  }
 
   try {
     const cursoAtualizado = await prisma.curso.update({
@@ -90,6 +95,7 @@ export const editarCurso = async (req, res) => {
     });
     res.json(cursoAtualizado);
   } catch (error) {
+    console.error("ERRO AO EDITAR:", error);
     return handleControllerError(res, error, "Erro ao atualizar o curso.");
   }
 };
