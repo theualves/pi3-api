@@ -1,26 +1,42 @@
-# 📚 Backend API
+# ⚙️ API - Sistema de Gerenciamento de Atividades Acadêmicas
 
-Backend da aplicação desenvolvido com **Node.js + Express + Prisma ORM + MySQL**, responsável pelo gerenciamento de usuários, autenticação, solicitações, uploads de arquivos e comunicação com o banco de dados.
+Esta API foi desenvolvida para servir como backend do sistema **Sistema de Gerenciamento de Atividades Acadêmicas (PWA)**.
+
+O projeto foi construído utilizando **Node.js**, **Express**, **Prisma ORM** e **MySQL**, sendo responsável pelo gerenciamento de usuários, autenticação, atividades acadêmicas, uploads de arquivos e integração com o frontend desenvolvido em **Next.js**.
 
 > Projeto acadêmico desenvolvido em grupo com foco na construção de uma API REST utilizando boas práticas de desenvolvimento backend.
 
 ---
 
-# 🚀 Tecnologias Utilizadas
+# 🚀 Funcionalidades
+
+* 🔐 Autenticação de usuários com JWT
+* 👨‍🎓 Gerenciamento de alunos
+* 📝 Gerenciamento de atividades acadêmicas
+* 📊 Integração com dashboard e relatórios
+* 📂 Upload de arquivos
+* 📡 API REST com respostas em JSON
+* 📖 Documentação interativa com Swagger
+* ⚙️ Integração com banco de dados MySQL
+* 🌐 Deploy em nuvem com Render
+
+---
+
+# 🛠️ Tecnologias Utilizadas
 
 - Node.js
 - Express
 - Prisma ORM
 - MySQL
 - JWT Authentication
-- Multer
 - Bcrypt
-- Dotenv
+- Multer
 - Swagger
+- Dotenv
 
 ---
 
-# 🧠 Arquitetura do Projeto
+# 🧠 Arquitetura da Aplicação
 
 O fluxo da aplicação funciona da seguinte forma:
 
@@ -218,16 +234,6 @@ Os testes da aplicação ficam organizados na pasta:
 # 👥 Equipe
 
 Projeto desenvolvido em grupo para fins acadêmicos.
-
----
-
-# 📌 Melhorias Futuras
-
-- Testes automatizados
-- Dockerização
-- Logs avançados
-- Rate limiting
-- Refresh token
 
 ---
 
