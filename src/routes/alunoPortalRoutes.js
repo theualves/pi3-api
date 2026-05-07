@@ -10,6 +10,7 @@ import {
   criarNovaSolicitacaoAluno,
   editarSolicitacaoAluno,
   excluirSolicitacaoAluno,
+  obterDetalhesSolicitacao,
 } from "../controllers/AlunoPortalController.js";
 
 const router = express.Router();
@@ -59,5 +60,7 @@ router.get("/:alunoId/historico", listarHistoricoAluno);
 router.post("/:alunoId/solicitacoes", uploadComprovante, criarNovaSolicitacaoAluno);
 router.put("/:alunoId/solicitacoes/:atividadeId", uploadComprovante, editarSolicitacaoAluno);
 router.delete("/:alunoId/solicitacoes/:atividadeId", excluirSolicitacaoAluno);
+router.get("/:alunoId/solicitacoes/:atividadeId", obterDetalhesSolicitacao);
+
 
 export default router;

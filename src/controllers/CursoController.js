@@ -9,11 +9,17 @@ import { handleControllerError } from "../utils/apiErrors.js";
 
 export const listarCursos = async (req, res) => {
   try {
-    const { nome, status } = req.query;
+    // Adicionamos 'coordenadorId' aqui
+    const { nome, status, coordenadorId } = req.query;
+
     const cursos = await prisma.curso.findMany({
       where: {
         nome: isNonEmptyString(nome) ? { contains: nome.trim() } : undefined,
         status: isNonEmptyString(status) ? status.trim() : undefined,
+        // Filtra cursos que possuem o coordenador específico na lista de usuários
+        usuarios: coordenadorId ? {
+          some: { id: coordenadorId }
+        } : undefined,
       },
       include: {
         usuarios: {

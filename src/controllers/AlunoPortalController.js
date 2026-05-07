@@ -14,11 +14,11 @@ import {
 } from "../models/alunoPortalModel.js";
 import { prisma } from "../lib/prisma.js";
 
-
 const CATEGORIAS_VALIDAS = new Set(["ENSINO", "PESQUISA", "EXTENSAO"]);
 const STATUS_VALIDOS = new Set(["PENDENTE", "APROVADA", "REJEITADA"]);
 
-const normalizarTexto = (valor) => (valor ? String(valor).trim().toUpperCase() : undefined);
+const normalizarTexto = (valor) =>
+  valor ? String(valor).trim().toUpperCase() : undefined;
 
 const normalizarOrdenacao = (valor) => {
   const valorNormalizado = normalizarTexto(valor);
@@ -52,7 +52,9 @@ const montarDadosArquivo = (arquivo) => {
     return {};
   }
 
-  const caminhoRelativo = path.relative(process.cwd(), arquivo.path).replaceAll("\\", "/");
+  const caminhoRelativo = path
+    .relative(process.cwd(), arquivo.path)
+    .replaceAll("\\", "/");
 
   return {
     comprovante: caminhoRelativo,
@@ -68,7 +70,10 @@ const removerArquivoSeExistir = (caminhoArquivo) => {
       return;
     }
 
-    if (caminhoArquivo.startsWith("http://") || caminhoArquivo.startsWith("https://")) {
+    if (
+      caminhoArquivo.startsWith("http://") ||
+      caminhoArquivo.startsWith("https://")
+    ) {
       return;
     }
 
@@ -107,14 +112,14 @@ const garantirAluno = async (idDaMochila, res) => {
   const aluno = await prisma.aluno.findFirst({
     where: {
       OR: [
-        { id: idDaMochila },       // Caso seja o ID de Aluno
-        { usuarioId: idDaMochila } // Caso seja o ID de Usuário (o seu caso atual!)
-      ]
+        { id: idDaMochila }, // Caso seja o ID de Aluno
+        { usuarioId: idDaMochila }, // Caso seja o ID de Usuário (o seu caso atual!)
+      ],
     },
     include: {
       usuario: { select: { id: true, nome: true, email: true } },
-      curso: true
-    }
+      curso: true,
+    },
   });
 
   if (!aluno) {
@@ -128,10 +133,14 @@ const garantirAluno = async (idDaMochila, res) => {
 export const obterDashboardAluno = async (req, res) => {
   try {
     const { alunoId } = req.params;
-    const limiteHoras = req.query.limiteHoras ? Number(req.query.limiteHoras) : LIMITE_HORAS_PADRAO;
+    const limiteHoras = req.query.limiteHoras
+      ? Number(req.query.limiteHoras)
+      : LIMITE_HORAS_PADRAO;
 
     if (!Number.isFinite(limiteHoras) || limiteHoras <= 0) {
-      return res.status(400).json({ error: "limiteHoras deve ser um número maior que zero." });
+      return res
+        .status(400)
+        .json({ error: "limiteHoras deve ser um número maior que zero." });
     }
 
     const aluno = await garantirAluno(alunoId, res);
@@ -139,7 +148,7 @@ export const obterDashboardAluno = async (req, res) => {
       return;
     }
 
-    const dashboard = await buscarDadosDashboardAluno(alunoId, limiteHoras);
+    const dashboard = await buscarDadosDashboardAluno(aluno.id, limiteHoras);
 
     return res.json({
       aluno: {
@@ -150,14 +159,35 @@ export const obterDashboardAluno = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: "Erro ao buscar dados do dashboard do aluno." });
+    return res
+      .status(500)
+      .json({ error: "Erro ao buscar dados do dashboard do aluno." });
   }
 };
+
+export const obterDetalhesSolicitacao = async (req, res) => {
+  try {
+    const { alunoId, atividadeId } = req.params;
+    const aluno = await garantirAluno(alunoId, res);
+    if (!aluno) return;
+
+    const atividade = await buscarSolicitacaoDoAlunoPorId(aluno.id, atividadeId);
+
+    if (!atividade) {
+      return res.status(404).json({ error: "Atividade não encontrada." });
+    }
+
+    return res.json(formatarSolicitacao(atividade));
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao buscar detalhes." });
+  }
+};
+
 
 export const listarMeusCursos = async (req, res) => {
   try {
     const { alunoId } = req.params;
-    const cursos = await listarCursosAtivosAluno(alunoId);
+    const cursos = await listarCursosAtivosAluno(aluno.id);
 
     if (!cursos) {
       return res.status(404).json({ error: "Aluno não encontrado." });
@@ -169,7 +199,9 @@ export const listarMeusCursos = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: "Erro ao listar cursos ativos do aluno." });
+    return res
+      .status(500)
+      .json({ error: "Erro ao listar cursos ativos do aluno." });
   }
 };
 
@@ -185,11 +217,19 @@ export const listarMinhasSolicitacoes = async (req, res) => {
     const status = normalizarTexto(req.query.status);
 
     if (categoria && !CATEGORIAS_VALIDAS.has(categoria)) {
-      return res.status(400).json({ error: "Categoria inválida. Use ENSINO, PESQUISA ou EXTENSAO." });
+      return res
+        .status(400)
+        .json({
+          error: "Categoria inválida. Use ENSINO, PESQUISA ou EXTENSAO.",
+        });
     }
 
     if (status && !STATUS_VALIDOS.has(status)) {
-      return res.status(400).json({ error: "Status inválido. Use PENDENTE, APROVADA ou REJEITADA." });
+      return res
+        .status(400)
+        .json({
+          error: "Status inválido. Use PENDENTE, APROVADA ou REJEITADA.",
+        });
     }
 
     const filtroHorasInformado = req.query.ordenarHoras || req.query.horas;
@@ -198,25 +238,40 @@ export const listarMinhasSolicitacoes = async (req, res) => {
     const ordenarData = normalizarOrdenacao(filtroDataInformado);
 
     if (filtroHorasInformado && !ordenarHoras) {
-      return res.status(400).json({ error: "Filtro de horas inválido. Use asc ou desc." });
+      return res
+        .status(400)
+        .json({ error: "Filtro de horas inválido. Use asc ou desc." });
     }
 
     if (filtroDataInformado && !ordenarData) {
-      return res.status(400).json({ error: "Filtro de data inválido. Use asc ou desc." });
+      return res
+        .status(400)
+        .json({ error: "Filtro de data inválido. Use asc ou desc." });
     }
 
-    const dataInicio = req.query.dataInicio ? parseDataISO(req.query.dataInicio) : undefined;
-    const dataFim = req.query.dataFim ? parseDataISO(req.query.dataFim) : undefined;
+    const dataInicio = req.query.dataInicio
+      ? parseDataISO(req.query.dataInicio)
+      : undefined;
+    const dataFim = req.query.dataFim
+      ? parseDataISO(req.query.dataFim)
+      : undefined;
 
-    if ((req.query.dataInicio && !dataInicio) || (req.query.dataFim && !dataFim)) {
-      return res.status(400).json({ error: "Use datas válidas no formato ISO (YYYY-MM-DD)." });
+    if (
+      (req.query.dataInicio && !dataInicio) ||
+      (req.query.dataFim && !dataFim)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Use datas válidas no formato ISO (YYYY-MM-DD)." });
     }
 
     if (dataInicio && dataFim && dataInicio > dataFim) {
-      return res.status(400).json({ error: "dataInicio não pode ser maior que dataFim." });
+      return res
+        .status(400)
+        .json({ error: "dataInicio não pode ser maior que dataFim." });
     }
 
-    const solicitacoes = await listarSolicitacoesDoAluno(alunoId, {
+    const solicitacoes = await listarSolicitacoesDoAluno(aluno.id, {
       categoria,
       status,
       ordenarHoras,
@@ -231,7 +286,9 @@ export const listarMinhasSolicitacoes = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: "Erro ao listar solicitações do aluno." });
+    return res
+      .status(500)
+      .json({ error: "Erro ao listar solicitações do aluno." });
   }
 };
 
@@ -243,7 +300,7 @@ export const listarHistoricoAluno = async (req, res) => {
       return;
     }
 
-    const historico = await listarSolicitacoesDoAluno(alunoId, {
+    const historico = await listarSolicitacoesDoAluno(aluno.id, {
       status: "APROVADA",
       ordenarData: "desc",
     });
@@ -254,7 +311,9 @@ export const listarHistoricoAluno = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: "Erro ao listar histórico do aluno." });
+    return res
+      .status(500)
+      .json({ error: "Erro ao listar histórico do aluno." });
   }
 };
 
@@ -267,36 +326,61 @@ export const criarNovaSolicitacaoAluno = async (req, res) => {
       return;
     }
 
-    const { titulo, categoria, dataInicio, cargaHoraria, horasSolicitadas, descricao } = req.body;
+    const {
+      titulo,
+      categoria,
+      dataInicio,
+      cargaHoraria,
+      horasSolicitadas,
+      descricao,
+    } = req.body;
 
-    if (!titulo || !categoria || (!cargaHoraria && !horasSolicitadas) || !dataInicio) {
+    if (
+      !titulo ||
+      !categoria ||
+      (!cargaHoraria && !horasSolicitadas) ||
+      !dataInicio
+    ) {
       removerArquivoSeExistir(req.file?.path);
       return res.status(400).json({
-        error: "Preencha os campos obrigatórios: titulo, categoria, dataInicio e cargaHoraria.",
+        error:
+          "Preencha os campos obrigatórios: titulo, categoria, dataInicio e cargaHoraria.",
       });
     }
 
     if (!req.file) {
-      return res.status(400).json({ error: "Envie um comprovante em PDF, JPG ou PNG de até 5MB." });
+      return res
+        .status(400)
+        .json({ error: "Envie um comprovante em PDF, JPG ou PNG de até 5MB." });
     }
 
     const categoriaNormalizada = normalizarTexto(categoria);
 
     if (!CATEGORIAS_VALIDAS.has(categoriaNormalizada)) {
       removerArquivoSeExistir(req.file.path);
-      return res.status(400).json({ error: "Categoria inválida. Use ENSINO, PESQUISA ou EXTENSAO." });
+      return res
+        .status(400)
+        .json({
+          error: "Categoria inválida. Use ENSINO, PESQUISA ou EXTENSAO.",
+        });
     }
 
     const horas = Number(cargaHoraria || horasSolicitadas);
     if (!Number.isFinite(horas) || horas <= 0) {
       removerArquivoSeExistir(req.file.path);
-      return res.status(400).json({ error: "cargaHoraria deve ser um número maior que zero." });
+      return res
+        .status(400)
+        .json({ error: "cargaHoraria deve ser um número maior que zero." });
     }
 
     const dataInicioConvertida = parseDataISO(dataInicio);
     if (!dataInicioConvertida) {
       removerArquivoSeExistir(req.file.path);
-      return res.status(400).json({ error: "dataInicio inválida. Use o formato ISO (YYYY-MM-DD)." });
+      return res
+        .status(400)
+        .json({
+          error: "dataInicio inválida. Use o formato ISO (YYYY-MM-DD).",
+        });
     }
 
     const dadosArquivo = montarDadosArquivo(req.file);
@@ -315,7 +399,9 @@ export const criarNovaSolicitacaoAluno = async (req, res) => {
   } catch (error) {
     console.error(error);
     removerArquivoSeExistir(req.file?.path);
-    return res.status(500).json({ error: "Erro ao criar solicitação de atividade." });
+    return res
+      .status(500)
+      .json({ error: "Erro ao criar solicitação de atividade." });
   }
 };
 
@@ -323,21 +409,34 @@ export const editarSolicitacaoAluno = async (req, res) => {
   try {
     const { alunoId, atividadeId } = req.params;
 
-    const solicitacao = await buscarSolicitacaoDoAlunoPorId(alunoId, atividadeId);
+    const solicitacao = await buscarSolicitacaoDoAlunoPorId(
+      alunoId,
+      atividadeId,
+    );
     if (!solicitacao) {
       removerArquivoSeExistir(req.file?.path);
-      return res.status(404).json({ error: "Solicitação não encontrada para este aluno." });
+      return res
+        .status(404)
+        .json({ error: "Solicitação não encontrada para este aluno." });
     }
 
     if (!STATUS_EDITAVEIS.has(solicitacao.status)) {
       removerArquivoSeExistir(req.file?.path);
       return res.status(409).json({
-        error: "Somente solicitações pendentes ou rejeitadas podem ser editadas.",
+        error:
+          "Somente solicitações pendentes ou rejeitadas podem ser editadas.",
       });
     }
 
     const dadosAtualizacao = {};
-    const { titulo, categoria, dataInicio, cargaHoraria, horasSolicitadas, descricao } = req.body;
+    const {
+      titulo,
+      categoria,
+      dataInicio,
+      cargaHoraria,
+      horasSolicitadas,
+      descricao,
+    } = req.body;
 
     if (titulo !== undefined) {
       const tituloLimpo = String(titulo).trim();
@@ -356,7 +455,11 @@ export const editarSolicitacaoAluno = async (req, res) => {
       const categoriaNormalizada = normalizarTexto(categoria);
       if (!CATEGORIAS_VALIDAS.has(categoriaNormalizada)) {
         removerArquivoSeExistir(req.file?.path);
-        return res.status(400).json({ error: "Categoria inválida. Use ENSINO, PESQUISA ou EXTENSAO." });
+        return res
+          .status(400)
+          .json({
+            error: "Categoria inválida. Use ENSINO, PESQUISA ou EXTENSAO.",
+          });
       }
       dadosAtualizacao.categoria = categoriaNormalizada;
     }
@@ -365,7 +468,11 @@ export const editarSolicitacaoAluno = async (req, res) => {
       const dataInicioConvertida = parseDataISO(dataInicio);
       if (!dataInicioConvertida) {
         removerArquivoSeExistir(req.file?.path);
-        return res.status(400).json({ error: "dataInicio inválida. Use o formato ISO (YYYY-MM-DD)." });
+        return res
+          .status(400)
+          .json({
+            error: "dataInicio inválida. Use o formato ISO (YYYY-MM-DD).",
+          });
       }
       dadosAtualizacao.dataInicio = dataInicioConvertida;
     }
@@ -374,7 +481,9 @@ export const editarSolicitacaoAluno = async (req, res) => {
       const horas = Number(cargaHoraria || horasSolicitadas);
       if (!Number.isFinite(horas) || horas <= 0) {
         removerArquivoSeExistir(req.file?.path);
-        return res.status(400).json({ error: "cargaHoraria deve ser um número maior que zero." });
+        return res
+          .status(400)
+          .json({ error: "cargaHoraria deve ser um número maior que zero." });
       }
       dadosAtualizacao.horasSolicitadas = horas;
     }
@@ -385,7 +494,9 @@ export const editarSolicitacaoAluno = async (req, res) => {
 
     if (!Object.keys(dadosAtualizacao).length) {
       removerArquivoSeExistir(req.file?.path);
-      return res.status(400).json({ error: "Nenhum campo enviado para atualização." });
+      return res
+        .status(400)
+        .json({ error: "Nenhum campo enviado para atualização." });
     }
 
     Object.assign(dadosAtualizacao, {
@@ -396,9 +507,16 @@ export const editarSolicitacaoAluno = async (req, res) => {
       validadaEm: null,
     });
 
-    const atividadeAtualizada = await atualizarSolicitacaoDoAluno(atividadeId, dadosAtualizacao);
+    const atividadeAtualizada = await atualizarSolicitacaoDoAluno(
+      atividadeId,
+      dadosAtualizacao,
+    );
 
-    if (req.file && solicitacao.comprovante && solicitacao.comprovante !== atividadeAtualizada.comprovante) {
+    if (
+      req.file &&
+      solicitacao.comprovante &&
+      solicitacao.comprovante !== atividadeAtualizada.comprovante
+    ) {
       removerArquivoSeExistir(solicitacao.comprovante);
     }
 
@@ -413,15 +531,21 @@ export const editarSolicitacaoAluno = async (req, res) => {
 export const excluirSolicitacaoAluno = async (req, res) => {
   try {
     const { alunoId, atividadeId } = req.params;
-    const solicitacao = await buscarSolicitacaoDoAlunoPorId(alunoId, atividadeId);
+    const solicitacao = await buscarSolicitacaoDoAlunoPorId(
+      alunoId,
+      atividadeId,
+    );
 
     if (!solicitacao) {
-      return res.status(404).json({ error: "Solicitação não encontrada para este aluno." });
+      return res
+        .status(404)
+        .json({ error: "Solicitação não encontrada para este aluno." });
     }
 
     if (!STATUS_EDITAVEIS.has(solicitacao.status)) {
       return res.status(409).json({
-        error: "Somente solicitações pendentes ou rejeitadas podem ser excluídas.",
+        error:
+          "Somente solicitações pendentes ou rejeitadas podem ser excluídas.",
       });
     }
 

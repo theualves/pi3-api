@@ -7,16 +7,17 @@ export const login = async (req, res) => {
   const { email, senha } = req.body;
 
   try {
-    const usuario = await prisma.usuario.findUnique({ where: { email } });
+    // 1. Alterado para incluir os dados do Aluno na busca
+    const usuario = await prisma.usuario.findUnique({ 
+      where: { email },
+      include: { aluno: true } // 👈 ESSENCIAL: traz o ID da tabela Aluno
+    });
 
     if (!usuario) {
       return res.status(401).json({ error: "E-mail ou senha inválidos." });
     }
 
-    // Compara a senha enviada com o hash do banco
     const senhaValida = await bcrypt.compare(senha, usuario.senha);
-
-    // Fallback temporário caso o seed ainda esteja em texto puro
     const ehSenhaTextoPuro = senha === usuario.senha;
 
     if (!senhaValida && !ehSenhaTextoPuro) {
@@ -26,24 +27,25 @@ export const login = async (req, res) => {
     res.json({
       message: "Login realizado com sucesso!",
       usuario: {
-        id: usuario.id,
+        id: usuario.id,       // ID do Usuário (para login/perfil)
         nome: usuario.nome,
-        senhaCriptografada: usuario.senha,
         tipo: usuario.tipo,
+        // 2. Enviando o ID do Aluno para o Frontend salvar na mochila
+        idAluno: usuario.aluno?.id || null 
       },
     });
   } catch (error) {
+    console.error("ERRO NO LOGIN:", error);
     res.status(500).json({ error: "Erro ao realizar login." });
   }
 };
 
-// --- RECUPERAÇÃO DE SENHA ---
+// --- RESTO DO CÓDIGO (RECUPERAÇÃO E VALIDAÇÃO) ---
 export const solicitarRecuperacao = async (req, res) => {
   const { email } = req.body;
   try {
     const usuario = await prisma.usuario.findUnique({ where: { email } });
-    if (!usuario)
-      return res.status(404).json({ error: "Usuário não encontrado." });
+    if (!usuario) return res.status(404).json({ error: "Usuário não encontrado." });
 
     const token = crypto.randomBytes(32).toString("hex");
     const expira = new Date(Date.now() + 3600000); // 1h
@@ -53,7 +55,7 @@ export const solicitarRecuperacao = async (req, res) => {
       data: { resetToken: token, resetTokenExpira: expira },
     });
 
-    console.log("TOKEN GERADO:", token); // Para você copiar e usar no Postman
+    console.log("TOKEN GERADO:", token);
     res.json({ message: "Link de recuperação gerado no console." });
   } catch (error) {
     res.status(500).json({ error: "Erro ao solicitar recuperação." });
@@ -67,10 +69,8 @@ export const redefinirSenha = async (req, res) => {
       where: { resetToken: token, resetTokenExpira: { gte: new Date() } },
     });
 
-    if (!usuario)
-      return res.status(400).json({ error: "Token inválido ou expirado." });
+    if (!usuario) return res.status(400).json({ error: "Token inválido ou expirado." });
 
-    // Criptografa a nova senha antes de salvar
     const senhaHash = await bcrypt.hash(novaSenha, 10);
 
     await prisma.usuario.update({
@@ -84,23 +84,14 @@ export const redefinirSenha = async (req, res) => {
   }
 };
 
-// Adicione esta função ao final do arquivo AuthController.js
 export const validarToken = async (req, res) => {
   const { token } = req.query;
-
   try {
     const usuario = await prisma.usuario.findFirst({
-      where: {
-        resetToken: token,
-        resetTokenExpira: {
-          gte: new Date(), // Verifica se o token ainda é maior ou igual ao horário atual
-        },
-      },
+      where: { resetToken: token, resetTokenExpira: { gte: new Date() } },
     });
 
-    if (!usuario) {
-      return res.status(400).json({ error: "Token inválido ou expirado." });
-    }
+    if (!usuario) return res.status(400).json({ error: "Token inválido ou expirado." });
 
     res.json({ valid: true });
   } catch (error) {
