@@ -10,6 +10,7 @@ import {
   criarNovaSolicitacaoAluno,
   editarSolicitacaoAluno,
   excluirSolicitacaoAluno,
+  obterDetalhesSolicitacao,
 } from "../controllers/AlunoPortalController.js";
 
 const router = express.Router();
@@ -29,7 +30,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (!TIPOS_PERMITIDOS.has(file.mimetype)) {
       return cb(new Error("Formato inválido. Envie PDF, JPG ou PNG."));
@@ -59,5 +60,7 @@ router.get("/:alunoId/historico", listarHistoricoAluno);
 router.post("/:alunoId/solicitacoes", uploadComprovante, criarNovaSolicitacaoAluno);
 router.put("/:alunoId/solicitacoes/:atividadeId", uploadComprovante, editarSolicitacaoAluno);
 router.delete("/:alunoId/solicitacoes/:atividadeId", excluirSolicitacaoAluno);
+router.get("/:alunoId/solicitacoes/:atividadeId", obterDetalhesSolicitacao);
+
 
 export default router;

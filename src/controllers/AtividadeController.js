@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "../lib/prisma.js";
+import { enviarEmailNotificacao } from "../services/EmailService.js";
 
 export const criarAtividade = async (req, res) => {
   try {
@@ -22,12 +23,18 @@ export const criarAtividade = async (req, res) => {
 };
 
 export const listarAtividades = async (req, res) => {
-  const { cursoId, turma, categoria, status, nome, cpf } = req.query;
+  const { cursoId, turma, categoria, status, nome, cpf, processadas } = req.query;
+
+  let filtroStatus = status || undefined;
+
+  if (processadas === "true") {
+    filtroStatus = { not: "PENDENTE" };
+  }
 
   const atividades = await prisma.atividade.findMany({
     where: {
+      status: filtroStatus,
       categoria: categoria || undefined,
-      status: status || undefined,
       aluno: {
         cursoId: cursoId || undefined,
         turma: turma || undefined,
@@ -58,29 +65,45 @@ export const validarAtividade = async (req, res) => {
   const { id } = req.params;
   const { status, horasAprovadas, motivo, validadorId } = req.body;
 
-  const atividade = await prisma.atividade.update({
-    where: { id },
-    data: {
-      status,
-      horasAprovadas: status === "APROVADA" ? Number(horasAprovadas || 0) : 0,
-      motivo: motivo || null,
-      validadaPorId: validadorId || null,
-      validadaEm: new Date(),
-    },
-    include: {
-      aluno: {
-        include: {
-          usuario: true,
+  try {
+    const atividade = await prisma.atividade.update({
+      where: { id },
+      data: {
+        status,
+        horasAprovadas: status === "APROVADA" ? Number(horasAprovadas || 0) : 0,
+        motivo: motivo || null,
+        validadaPorId: validadorId || null,
+        validadaEm: new Date(),
+      },
+      include: {
+        aluno: {
+          include: {
+            usuario: true,
+          },
+        },
+        validadaPor: {
+          select: { nome: true, email: true },
         },
       },
-      validadaPor: {
-        select: { nome: true, email: true },
-      },
-    },
-  });
+    });
 
-  res.json(atividade);
+    // DISPARO DO E-MAIL (O sistema não trava se o e-mail falhar)
+    if (atividade.aluno?.usuario?.email) {
+      enviarEmailNotificacao(
+        atividade.aluno.usuario.email,
+        atividade.aluno.usuario.nome,
+        status,
+        motivo
+      );
+    }
+
+    res.json(atividade);
+  } catch (error) {
+    console.error("Erro ao validar atividade:", error);
+    res.status(500).json({ error: "Erro ao processar a validação." });
+  }
 };
+
 export const baixarComprovante = async (req, res) => {
   const { id } = req.params;
 

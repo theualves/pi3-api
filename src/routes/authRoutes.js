@@ -1,11 +1,14 @@
 import express from "express";
 import {
+  login,
   solicitarRecuperacao,
   validarToken,
   redefinirSenha
 } from "../controllers/AuthController.js";
 
 const router = express.Router();
+
+router.post("/login", login);
 
 // solicitar link
 router.post("/recuperar", solicitarRecuperacao);

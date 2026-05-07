@@ -12,6 +12,7 @@ import atividadeRoutes from './src/routes/atividadeRoutes.js';
 import alunoPortalRoutes from './src/routes/alunoPortalRoutes.js';
 import alunoCoordenadorRoutes from './src/routes/alunoCoordenadorRoutes.js';
 import relatorioRoutes from './src/routes/relatorioRoutes.js';
+import path from 'path';
 
 
 const app = express();
@@ -20,6 +21,8 @@ const PORT = Number(process.env.PORT) || 3001;
 
 app.use(cors());
 app.use(express.json());
+
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.use('/api/cursos', cursoRoutes);
 app.use('/api/usuarios', usuarioRoutes);
