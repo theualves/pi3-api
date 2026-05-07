@@ -12,12 +12,19 @@ import atividadeRoutes from './src/routes/atividadeRoutes.js';
 import alunoPortalRoutes from './src/routes/alunoPortalRoutes.js';
 import alunoCoordenadorRoutes from './src/routes/alunoCoordenadorRoutes.js';
 import relatorioRoutes from './src/routes/relatorioRoutes.js';
+import fs from 'fs';
 import path from 'path';
 
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = Number(process.env.PORT) || 3001;
+
+const uploadDir = path.join(process.cwd(), 'uploads', 'comprovantes');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log('📁 Pasta de uploads criada com sucesso!');
+}
 
 app.use(cors());
 app.use(express.json());
