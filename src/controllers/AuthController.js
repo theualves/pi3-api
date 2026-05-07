@@ -9,9 +9,9 @@ export const login = async (req, res) => {
 
   try {
     // 1. Alterado para incluir os dados do Aluno na busca
-    const usuario = await prisma.usuario.findUnique({ 
+    const usuario = await prisma.usuario.findUnique({
       where: { email },
-      include: { aluno: true } // 👈 ESSENCIAL: traz o ID da tabela Aluno
+      include: { aluno: true }, // 👈 ESSENCIAL: traz o ID da tabela Aluno
     });
 
     if (!usuario) {
@@ -28,11 +28,11 @@ export const login = async (req, res) => {
     res.json({
       message: "Login realizado com sucesso!",
       usuario: {
-        id: usuario.id,       // ID do Usuário (para login/perfil)
+        id: usuario.id, // ID do Usuário (para login/perfil)
         nome: usuario.nome,
         tipo: usuario.tipo,
         // 2. Enviando o ID do Aluno para o Frontend salvar na mochila
-        idAluno: usuario.aluno?.id || null 
+        idAluno: usuario.aluno?.id || null,
       },
     });
   } catch (error) {
@@ -41,12 +41,13 @@ export const login = async (req, res) => {
   }
 };
 
-// --- RESTO DO CÓDIGO (RECUPERAÇÃO E VALIDAÇÃO) ---
 export const solicitarRecuperacao = async (req, res) => {
   const { email } = req.body;
   try {
     const usuario = await prisma.usuario.findUnique({ where: { email } });
-    if (!usuario) return res.status(404).json({ error: "Usuário não encontrado." });
+    if (!usuario) {
+      return res.status(404).json({ error: "Usuário não encontrado." });
+    }
 
     const token = crypto.randomBytes(32).toString("hex");
     const expira = new Date(Date.now() + 3600000); // 1h
@@ -55,6 +56,10 @@ export const solicitarRecuperacao = async (req, res) => {
       where: { id: usuario.id },
       data: { resetToken: token, resetTokenExpira: expira },
     });
+
+    const resetLink = `https://senac-atividades.netlify.app//redefinir-senha?token=${token}`;
+
+    await enviarEmailRecuperacao(usuario.email, usuario.nome, resetLink);
 
     console.log("TOKEN GERADO:", token);
     res.json({ message: "Link de recuperação gerado no console." });
@@ -70,7 +75,8 @@ export const redefinirSenha = async (req, res) => {
       where: { resetToken: token, resetTokenExpira: { gte: new Date() } },
     });
 
-    if (!usuario) return res.status(400).json({ error: "Token inválido ou expirado." });
+    if (!usuario)
+      return res.status(400).json({ error: "Token inválido ou expirado." });
 
     const senhaHash = await bcrypt.hash(novaSenha, 10);
 
@@ -78,10 +84,6 @@ export const redefinirSenha = async (req, res) => {
       where: { id: usuario.id },
       data: { senha: senhaHash, resetToken: null, resetTokenExpira: null },
     });
-
-    const resetLink = `http://localhost:3000/redefinir-senha?token=${token}`;
-
-    await enviarEmailRecuperacao(usuario.email, usuario.nome, resetLink);
 
     res.json({ message: "Senha redefinida com sucesso agora com hash!" });
   } catch (error) {
@@ -96,7 +98,8 @@ export const validarToken = async (req, res) => {
       where: { resetToken: token, resetTokenExpira: { gte: new Date() } },
     });
 
-    if (!usuario) return res.status(400).json({ error: "Token inválido ou expirado." });
+    if (!usuario)
+      return res.status(400).json({ error: "Token inválido ou expirado." });
 
     res.json({ valid: true });
   } catch (error) {
