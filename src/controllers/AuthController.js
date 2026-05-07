@@ -1,6 +1,7 @@
 import { prisma } from "../lib/prisma.js";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
+import { enviarEmailRecuperacao } from "../services/EmailService.js";
 
 // --- LOGIN ---
 export const login = async (req, res) => {
@@ -77,6 +78,10 @@ export const redefinirSenha = async (req, res) => {
       where: { id: usuario.id },
       data: { senha: senhaHash, resetToken: null, resetTokenExpira: null },
     });
+
+    const resetLink = `http://localhost:3000/redefinir-senha?token=${token}`;
+
+    await enviarEmailRecuperacao(usuario.email, usuario.nome, resetLink);
 
     res.json({ message: "Senha redefinida com sucesso agora com hash!" });
   } catch (error) {
