@@ -10,7 +10,7 @@ import {
 import { handleControllerError } from "../utils/apiErrors.js";
 
 export const cadastrarAluno = async (req, res) => {
-  // Recebe os campos que o seu Front-end já possui
+  
   const { nome, email, senha, cpf, cursoId, periodo } = req.body;
 
   const validationErrors = [];
@@ -27,12 +27,12 @@ export const cadastrarAluno = async (req, res) => {
     return sendValidationError(res, validationErrors);
 
   try {
-    // Criptografa a senha para o aluno conseguir logar depois
+    
     const senhaHash = await bcrypt.hash(senha.trim(), 10);
 
-    // Usa transação: ou cria os dois (Usuário e Aluno) ou não cria nada
+    
     const resultado = await prisma.$transaction(async (tx) => {
-      // 1. Cria o Usuário de acesso
+      
       const usuario = await tx.usuario.create({
         data: {
           nome: nome.trim(),
@@ -44,15 +44,15 @@ export const cadastrarAluno = async (req, res) => {
         },
       });
 
-      // 2. Cria os dados acadêmicos na tabela Aluno
+      
       const aluno = await tx.aluno.create({
         data: {
           cpf: cpf.trim(),
           usuarioId: usuario.id,
           cursoId: cursoId,
           periodo: toInt(periodo) || 1,
-          cargaExigida: 100, // Valor padrão enquanto não vem do front
-          turma: null, // Agora permitido pela sua migration (opcional)
+          cargaExigida: 100, 
+          turma: null, 
         },
       });
 
@@ -74,7 +74,7 @@ export const cadastrarAluno = async (req, res) => {
   }
 };
 
-// Criar Usuário (POST)
+
 export const criarUsuario = async (req, res) => {
   const { nome, email, senha, tipo, cursoId, status } = req.body;
 
@@ -87,7 +87,7 @@ export const criarUsuario = async (req, res) => {
   if (validationErrors.length > 0) return sendValidationError(res, validationErrors);
 
   try {
-    // CRIPTOGRAFIA: Transforma a senha em Hash antes de salvar
+    
     const senhaHash = await bcrypt.hash(senha.trim(), 10);
 
     const novoUsuario = await prisma.usuario.create({
@@ -110,7 +110,7 @@ export const criarUsuario = async (req, res) => {
   }
 };
 
-// Listar Usuários (GET)
+
 export const listarUsuarios = async (req, res) => {
   const { tipo, nome, email, cursoId } = req.query;
   try {
@@ -133,44 +133,6 @@ export const listarUsuarios = async (req, res) => {
   }
 };
 
-// Recuperar Senha (POST) - Simplificado para usar apenas E-mail e Tipo
-export const recuperarSenha = async (req, res) => {
-  const { tipo, email } = req.body;
-
-  if (!isValidEmail(email) || !isNonEmptyString(tipo)) {
-    return res.status(400).json({ error: "E-mail e Tipo são obrigatórios." });
-  }
-
-  try {
-    const usuario = await prisma.usuario.findFirst({
-      where: {
-        email: email.trim(),
-        tipo: tipo.toUpperCase(),
-      },
-    });
-
-    if (!usuario) {
-      return res.status(404).json({ error: "Usuário não encontrado." });
-    }
-
-    const token = crypto.randomBytes(24).toString("hex");
-    const expira = new Date(Date.now() + 3600000); // 1h
-
-    // Grava o token no banco (bater com o Model que tem resetToken)
-    await prisma.usuario.update({
-      where: { id: usuario.id },
-      data: { resetToken: token, resetTokenExpira: expira }
-    });
-
-    return res.status(200).json({
-      message: "Token de recuperação gerado.",
-      token: token, // Em produção, enviaria por e-mail
-      observacao: "Use este token na rota de redefinir senha."
-    });
-  } catch (error) {
-    return handleControllerError(res, error, "Erro ao processar recuperação.");
-  }
-};
 
 export const contarUsuarios = async (req, res) => {
   const { tipo } = req.query;

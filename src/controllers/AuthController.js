@@ -3,7 +3,7 @@ import crypto from "crypto";
 import bcrypt from "bcrypt";
 import { enviarEmailRecuperacao } from "../services/EmailService.js";
 
-// --- LOGIN ---
+
 export const login = async (req, res) => {
   const { email, senha } = req.body;
 
@@ -11,7 +11,7 @@ export const login = async (req, res) => {
     // 1. Alterado para incluir os dados do Aluno na busca
     const usuario = await prisma.usuario.findUnique({
       where: { email },
-      include: { aluno: true }, // 👈 ESSENCIAL: traz o ID da tabela Aluno
+      include: { aluno: true }, 
     });
 
     if (!usuario) {
@@ -57,7 +57,7 @@ export const solicitarRecuperacao = async (req, res) => {
       data: { resetToken: token, resetTokenExpira: expira },
     });
 
-    const resetLink = `https://senac-atividades.netlify.app//redefinir-senha?token=${token}`;
+    const resetLink = `https://senac-atividades.netlify.app/redefinir-senha?token=${token}`;
 
     await enviarEmailRecuperacao(usuario.email, usuario.nome, resetLink);
 
