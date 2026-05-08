@@ -233,10 +233,14 @@ Os testes da aplicação ficam organizados na pasta:
 
 # 👥 Equipe
 
-Projeto desenvolvido em grupo para fins acadêmicos.
+- Arthur Filipe Rodrigues da Silva
+- Filipe Xavier dos Santos
+- Maria Cecília de Lima e Silva
+- Maria Clara Moutinho Albuquerque Silva
+- Matheus Alves de Arruda
 
 ---
 
 # 📄 Licença
 
-Este projeto está sob a licença MIT.
+Este projeto foi desenvolvido para fins acadêmicos.
