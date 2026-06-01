@@ -409,10 +409,17 @@ export const editarSolicitacaoAluno = async (req, res) => {
   try {
     const { alunoId, atividadeId } = req.params;
 
+    const aluno = await garantirAluno(alunoId, res);
+    if (!aluno) {
+      removerArquivoSeExistir(req.file?.path);
+      return; 
+    }
+
     const solicitacao = await buscarSolicitacaoDoAlunoPorId(
-      alunoId,
+      aluno.id,
       atividadeId,
     );
+
     if (!solicitacao) {
       removerArquivoSeExistir(req.file?.path);
       return res
@@ -531,8 +538,12 @@ export const editarSolicitacaoAluno = async (req, res) => {
 export const excluirSolicitacaoAluno = async (req, res) => {
   try {
     const { alunoId, atividadeId } = req.params;
+
+    const aluno = await garantirAluno(alunoId, res);
+    if (!aluno) return;
+
     const solicitacao = await buscarSolicitacaoDoAlunoPorId(
-      alunoId,
+      aluno.id,
       atividadeId,
     );
 
