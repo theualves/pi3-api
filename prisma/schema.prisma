@@ -8,12 +8,12 @@ datasource db {
 }
 
 model Usuario {
-  id        String   @id @default(uuid())
-  nome      String
-  email     String   @unique
-  senha     String
-  status    String   @default("Ativo")
-  createdAt DateTime @default(now())
+  id               String    @id @default(uuid())
+  nome             String
+  email            String    @unique
+  senha            String
+  status           String    @default("Ativo")
+  createdAt        DateTime  @default(now())
   resetToken       String?
   resetTokenExpira DateTime?
 
@@ -23,42 +23,47 @@ model Usuario {
   curso               Curso?      @relation("CursoUsuarios", fields: [cursoId], references: [id])
   aluno               Aluno?      @relation("UsuarioAluno")
   atividadesValidadas Atividade[] @relation("ValidadorAtividade")
+
+  // Índice para acelerar a busca de alunos por nome na listagem
+  @@index([nome])
 }
 
 model Curso {
-  id           String   @id @default(uuid())
-  nome         String   @unique
-  categoria    String
-  tipoCurso    String
-  duracao      String
-  metaHoras Int @default(0)
-  status       String   @default("Ativo")
-  createdAt    DateTime @default(now())
+  id        String   @id @default(uuid())
+  nome      String   @unique
+  categoria String
+  tipoCurso String
+  duracao   String
+  metaHoras Int      @default(0)
+  status    String   @default("Ativo")
+  createdAt DateTime @default(now())
 
   usuarios Usuario[] @relation("CursoUsuarios")
-
-  alunos Aluno[] @relation("CursoAlunos") // 👈 CORREÇÃO AQUI
-
-  limites Limite[]
+  alunos   Aluno[]   @relation("CursoAlunos")
+  limites  Limite[]
 }
 
 model Aluno {
   id  String @id @default(uuid())
+  
+  // Otimizado para armazenar exatamente os 11 dígitos do CPF numérico
   cpf String @unique
 
   usuarioId String  @unique
   usuario   Usuario @relation("UsuarioAluno", fields: [usuarioId], references: [id])
 
   cursoId String
-  curso   Curso  @relation("CursoAlunos", fields: [cursoId], references: [id]) // 👈 AQUI
+  curso   Curso  @relation("CursoAlunos", fields: [cursoId], references: [id])
 
-  turma        Turma?
+  // Alterado de Enum para String para o sistema não quebrar a cada novo semestre/ano
+  turma        String
   periodo      Int
   cargaExigida Int
 
   atividades Atividade[]
+  createdAt  DateTime    @default(now())
 
-  createdAt DateTime @default(now())
+  @@index([turma])
 }
 
 model Atividade {
@@ -126,10 +131,4 @@ enum Categoria {
   ENSINO
   PESQUISA
   EXTENSAO
-}
-
-enum Turma {
-  TADS047
-  TADS048
-  TADS049
 }
