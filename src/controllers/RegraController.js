@@ -2,62 +2,70 @@ import { prisma } from "../lib/prisma.js";
 import { toBoolean, sendValidationError } from "../utils/validation.js";
 import { handleControllerError } from "../utils/apiErrors.js";
 
+/**
+ * Salva ou atualiza a regra global do sistema (Padrão Singleton)
+ */
 export const salvarRegra = async (req, res) => {
-  const { exigeAprovacaoCoordenador, exigeCertificado } = req.body;
-  const aprovacaoBool = toBoolean(exigeAprovacaoCoordenador);
+  const { verificaCoordenador, exigeCertificado } = req.body;
+
+  // Converte os inputs para booleano real (true/false) ou null se inválido
+  const aprovacaoBool = toBoolean(verificaCoordenador);
   const certificadoBool = toBoolean(exigeCertificado);
 
+
   const validationErrors = [];
-  if (exigeAprovacaoCoordenador !== undefined && aprovacaoBool === null) {
+  
+  if (verificaCoordenador !== undefined && aprovacaoBool === null) {
     validationErrors.push({
-      field: "exigeAprovacaoCoordenador",
-      message: "Informe true/false.",
+      field: "verificaCoordenador",
+      message: "Informe true ou false.",
     });
   }
+  
   if (exigeCertificado !== undefined && certificadoBool === null) {
     validationErrors.push({
       field: "exigeCertificado",
-      message: "Informe true/false.",
+      message: "Informe true ou false.",
     });
   }
+
   if (validationErrors.length > 0) {
     return sendValidationError(res, validationErrors);
   }
 
+
   try {
-    const existente = await prisma.regra.findFirst({ select: { id: true } });
+   
+    const regraExistente = await prisma.regra.findFirst({ select: { id: true } });
+    const idRegra = regraExistente?.id || "REGRA-GLOBAL-ID"; 
 
-    const data = {};
-    if (aprovacaoBool !== null) {
-      data.exigeAprovacaoCoordenador = aprovacaoBool;
-    }
-    if (certificadoBool !== null) {
-      data.exigeCertificado = certificadoBool;
-    }
-    if (Object.keys(data).length === 0) {
-      data.exigeAprovacaoCoordenador = false;
-      data.exigeCertificado = false;
-    }
+   
+    const data = {
+      verificaCoordenador: aprovacaoBool ?? false,
+      exigeCertificado: certificadoBool ?? false,
+    };
 
-    const regra = existente
-      ? await prisma.regra.update({
-        where: { id: existente.id },
-        data,
-      })
-      : await prisma.regra.create({ data });
+    
+    const regra = await prisma.regra.upsert({
+      where: { id: idRegra },
+      update: data,
+      create: { id: idRegra, ...data },
+    });
 
-    res.json(regra);
+    return res.json(regra);
   } catch (error) {
     return handleControllerError(res, error, "Erro ao salvar regra.");
   }
 };
 
+
 export const buscarRegra = async (req, res) => {
   try {
     const regra = await prisma.regra.findFirst();
-    res.json(
+    
+    return res.json(
       regra || {
-        exigeAprovacaoCoordenador: false,
+        verificaCoordenador: false,
         exigeCertificado: false,
       }
     );
