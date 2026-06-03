@@ -1,147 +1,174 @@
+import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import crypto from "crypto";
 import bcrypt from "bcrypt"; 
-import {
-  isNonEmptyString,
-  isValidEmail,
-  toInt,
-  sendValidationError,
-} from "../utils/validation.js";
-import { handleControllerError } from "../utils/apiErrors.js";
+
+const cadastrarAlunoSchema = z.object({
+  nome: z.string().min(3).transform(val => val.trim()),
+  email: z.string().email().transform(val => val.trim()),
+  senha: z.string().min(4),
+  cpf: z.string()
+    .transform((val) => val.replace(/\D/g, "")) 
+    .refine((val) => val.length === 11, { message: "CPF inválido" }),
+  cursoId: z.string().uuid(),
+  periodo: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(12)
+    .default(1),
+});
+
+const criarUsuarioSchema = z.object({
+  nome: z.string().min(3).transform(val => val.trim()),
+  email: z.string().email().transform(val => val.trim()),
+  senha: z.string().min(4),
+  tipo: z.string().transform(val => val.trim().toUpperCase()),
+  cursoId: z.string().uuid().nullable().optional(),
+  status: z.string().default("Ativo").transform(val => val.trim()),
+});
 
 export const cadastrarAluno = async (req, res) => {
-  
-  const { nome, email, senha, cpf, cursoId, periodo } = req.body;
-
-  const validationErrors = [];
-  if (!isNonEmptyString(nome))
-    validationErrors.push({ field: "nome", message: "Nome é obrigatório." });
-  if (!isValidEmail(email))
-    validationErrors.push({ field: "email", message: "E-mail inválido." });
-  if (!isNonEmptyString(senha))
-    validationErrors.push({ field: "senha", message: "Senha é obrigatória." });
-  if (!isNonEmptyString(cpf))
-    validationErrors.push({ field: "cpf", message: "CPF é obrigatório." });
-
-  if (validationErrors.length > 0)
-    return sendValidationError(res, validationErrors);
-
   try {
-    
-    const senhaHash = await bcrypt.hash(senha.trim(), 10);
+    const dadosValidados = cadastrarAlunoSchema.parse(req.body);
+    const { nome, email, senha, cpf, cursoId, periodo } = dadosValidados;
 
-    
+    const senhaHash = await bcrypt.hash(senha, 10);
+
     const resultado = await prisma.$transaction(async (tx) => {
-      
       const usuario = await tx.usuario.create({
         data: {
-          nome: nome.trim(),
-          email: email.trim(),
+          nome,
+          email,
           senha: senhaHash,
           tipo: "ALUNO",
-          cursoId: cursoId,
+          cursoId,       
           status: "Ativo",
         },
       });
 
-      
       const aluno = await tx.aluno.create({
         data: {
-          cpf: cpf.trim(),
-          usuarioId: usuario.id,
-          cursoId: cursoId,
-          periodo: toInt(periodo) || 1,
+          cpf,
+          periodo,
           cargaExigida: 100, 
-          turma: null, 
+          turma: "", // Alterado de null para string vazia para o banco aceitar
+          usuario: {
+            connect: { id: usuario.id }
+          },
+          curso: {
+            connect: { id: cursoId }
+          }
         },
       });
 
       return { usuario, aluno };
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Aluno cadastrado com sucesso!",
       idUsuario: resultado.usuario.id,
       idAluno: resultado.aluno.id,
     });
+
   } catch (error) {
-    console.error("ERRO AO CADASTRAR ALUNO:", error);
-    return handleControllerError(
-      res,
-      error,
-      "Erro ao cadastrar aluno. Verifique se CPF ou E-mail já existem.",
-    );
+    console.error("Erro no cadastro de aluno:", error);
+
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        erro: "Falha na validação dos dados", 
+        detalhes: error.flatten().fieldErrors 
+      });
+    }
+
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        erro: "Erro de duplicidade. O CPF ou o E-mail informado já está cadastrado."
+      });
+    }
+
+    return res.status(500).json({ 
+      erro: "Erro interno ao cadastrar aluno.",
+      detalhes: error.message
+    });
   }
 };
 
-
 export const criarUsuario = async (req, res) => {
-  const { nome, email, senha, tipo, cursoId, status } = req.body;
-
-  const validationErrors = [];
-  if (!isNonEmptyString(nome)) validationErrors.push({ field: "nome", message: "Campo obrigatório." });
-  if (!isValidEmail(email)) validationErrors.push({ field: "email", message: "E-mail inválido." });
-  if (!isNonEmptyString(senha)) validationErrors.push({ field: "senha", message: "Campo obrigatório." });
-  if (!isNonEmptyString(tipo)) validationErrors.push({ field: "tipo", message: "Campo obrigatório." });
-
-  if (validationErrors.length > 0) return sendValidationError(res, validationErrors);
-
   try {
-    
-    const senhaHash = await bcrypt.hash(senha.trim(), 10);
+    const dadosValidados = criarUsuarioSchema.parse(req.body);
+    const { nome, email, senha, tipo, cursoId, status } = dadosValidados;
+
+    const senhaHash = await bcrypt.hash(senha, 10);
+
+    const cursoFinalId = tipo === "GESTOR" ? null : (cursoId || null);
 
     const novoUsuario = await prisma.usuario.create({
       data: {
-        nome: nome.trim(),
-        email: email.trim(),
-        senha: senhaHash, // Salva o hash, não o texto puro
-        tipo: tipo.trim().toUpperCase(), // Garante que bata com o Enum (ex: COORDENADOR)
-        cursoId: tipo.toUpperCase() === "GESTOR" ? null : (isNonEmptyString(cursoId) ? cursoId.trim() : null),
-        status: isNonEmptyString(status) ? status.trim() : "Ativo",
+        nome,
+        email,
+        senha: senhaHash,
+        tipo, 
+        cursoId: cursoFinalId,
+        status,
       },
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Usuário criado com sucesso!",
       usuario: { id: novoUsuario.id, nome: novoUsuario.nome, email: novoUsuario.email }
     });
   } catch (error) {
-    return handleControllerError(res, error, "Erro ao criar usuário. Verifique se o e-mail já existe.");
+    console.error("Erro ao criar usuário:", error);
+
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        erro: "Falha na validação dos dados", 
+        detalhes: error.flatten().fieldErrors 
+      });
+    }
+    
+    if (error.code === 'P2002') {
+      return res.status(409).json({ erro: "O e-mail informado já está em uso." });
+    }
+
+    return res.status(500).json({ erro: "Erro interno ao criar usuário." });
   }
 };
 
-
 export const listarUsuarios = async (req, res) => {
-  const { tipo, nome, email, cursoId } = req.query;
   try {
+    const { tipo, nome, email, cursoId } = req.query;
+    
     const usuarios = await prisma.usuario.findMany({
       where: {
         tipo: tipo ? tipo.toUpperCase() : undefined,
-        nome: isNonEmptyString(nome) ? { contains: nome.trim() } : undefined,
-        email: isNonEmptyString(email) ? { contains: email.trim() } : undefined,
-        cursoId: isNonEmptyString(cursoId) ? cursoId.trim() : undefined,
+        nome: nome ? { contains: nome.trim() } : undefined,
+        email: email ? { contains: email.trim() } : undefined,
+        cursoId: cursoId ? cursoId.trim() : undefined,
       },
       include: {
         curso: { select: { nome: true } },
-        aluno: true // 👈 ADICIONE ESTA LINHA para o CPF e Período aparecerem no Front!
+        aluno: true 
       },
       orderBy: { createdAt: "desc" },
     });
-    res.json(usuarios);
+
+    return res.json(usuarios);
   } catch (error) {
-    return handleControllerError(res, error, "Erro ao buscar usuários.");
+    console.error("Erro ao listar usuários:", error);
+    return res.status(500).json({ erro: "Erro ao buscar usuários." });
   }
 };
 
-
 export const contarUsuarios = async (req, res) => {
-  const { tipo } = req.query;
   try {
+    const { tipo } = req.query;
     const total = await prisma.usuario.count({
       where: { tipo: tipo ? tipo.toUpperCase() : undefined },
     });
-    res.json({ total });
+    return res.json({ total });
   } catch (error) {
-    return handleControllerError(res, error, "Erro ao contar usuários.");
+    console.error("Erro ao contar usuários:", error);
+    return res.status(500).json({ erro: "Erro ao contar usuários." });
   }
 };

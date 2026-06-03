@@ -1,22 +1,41 @@
+import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import {
-  isNonEmptyString,
-  toInt,
-  toStringArray,
-  sendValidationError,
-} from "../utils/validation.js";
-import { handleControllerError } from "../utils/apiErrors.js";
+
+
+const criarCursoSchema = z.object({
+  nome: z.string().min(2, "O nome do curso deve ter pelo menos 2 caracteres").transform(val => val.trim()),
+  tipoFormacao: z.string().default("Superior").transform(val => val.trim()),
+  metaHoras: z.coerce
+    .number()
+    .int("A meta de horas deve ser um número inteiro")
+    .min(0, "A meta de horas não pode ser negativa"),
+  statusInicial: z.string().default("Ativo").transform(val => val.trim()),
+  categoria: z.string().default("Geral").transform(val => val.trim()),
+  duracao: z.string().default("N/A").transform(val => val.trim()),
+});
+
+// Esquema de validação para Editar Curso (Campos opcionais)
+const editarCursoSchema = z.object({
+  nome: z.string().min(2).transform(val => val.trim()).optional(),
+  categoria: z.string().transform(val => val.trim()).optional(),
+  tipoFormacao: z.string().transform(val => val.trim()).optional(),
+  duracao: z.string().transform(val => val.trim()).optional(),
+  statusInicial: z.string().transform(val => val.trim()).optional(),
+  metaHoras: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .optional(),
+});
 
 export const listarCursos = async (req, res) => {
   try {
-    // Adicionamos 'coordenadorId' aqui
     const { nome, status, coordenadorId } = req.query;
 
     const cursos = await prisma.curso.findMany({
       where: {
-        nome: isNonEmptyString(nome) ? { contains: nome.trim() } : undefined,
-        status: isNonEmptyString(status) ? status.trim() : undefined,
-        // Filtra cursos que possuem o coordenador específico na lista de usuários
+        nome: nome ? { contains: nome.trim() } : undefined,
+        status: status ? status.trim() : undefined,
         usuarios: coordenadorId ? {
           some: { id: coordenadorId }
         } : undefined,
@@ -28,94 +47,83 @@ export const listarCursos = async (req, res) => {
       },
       orderBy: { createdAt: "desc" },
     });
-    res.json(cursos);
+    
+    return res.json(cursos);
   } catch (error) {
-    return handleControllerError(res, error, "Erro ao buscar cursos.");
+    return res.status(500).json({ erro: "Erro ao buscar cursos." });
   }
 };
 
 export const criarCurso = async (req, res) => {
-  // 1. Recebe exatamente o que o seu FRONT-END envia
-  const { nome, tipoFormacao, metaHoras, statusInicial } = req.body;
-
-  const validationErrors = [];
-  
-  if (!isNonEmptyString(nome)) {
-    validationErrors.push({ field: "nome", message: "Nome é obrigatório." });
-  }
-
-  const metaInt = toInt(metaHoras);
-  if (metaInt === null || metaInt < 0) {
-    validationErrors.push({ field: "metaHoras", message: "Informe uma meta de horas válida." });
-  }
-
-  if (validationErrors.length > 0) {
-    return sendValidationError(res, validationErrors);
-  }
-
   try {
+    const dadosValidados = criarCursoSchema.parse(req.body);
+
     const novoCurso = await prisma.curso.create({
       data: {
-        nome: nome.trim(),
-        // Mapeando para os campos obrigatórios do seu SCHEMA atualizado:
-        metaHoras: metaInt,
-        tipoCurso: tipoFormacao || "Superior",
-        status: statusInicial || "Ativo",
-        categoria: "Geral", // Obrigatório no seu model
-        duracao: "N/A",    // Obrigatório no seu model
+        nome: dadosValidados.nome,
+        metaHoras: dadosValidados.metaHoras,
+        tipoCurso: dadosValidados.tipoFormacao,
+        status: dadosValidados.statusInicial,
+        categoria: dadosValidados.categoria,
+        duracao: dadosValidados.duracao,
       },
     });
-    res.status(201).json(novoCurso);
+
+    return res.status(201).json(novoCurso);
   } catch (error) {
-    // Se der erro, veremos exatamente o que o Prisma reclamou no terminal
-    console.error("ERRO PRISMA:", error);
-    return handleControllerError(res, error, "Dados inválidos para consulta/registro.");
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        erro: "Falha na validação dos dados", 
+        detalhes: error.flatten().fieldErrors 
+      });
+    }
+    return res.status(500).json({ erro: "Erro interno ao cadastrar o curso." });
   }
 };
 
 export const editarCurso = async (req, res) => {
-  const { id } = req.params;
-  // Ajustado para receber os nomes que vêm do seu Front
-  const { nome, categoria, tipoFormacao, duracao, metaHoras, statusInicial } = req.body;
-
-  if (!isNonEmptyString(id)) {
-    return sendValidationError(res, [{ field: "id", message: "ID obrigatório." }]);
-  }
-
-  const data = {};
-  if (nome) data.nome = nome.trim();
-  if (categoria) data.categoria = categoria.trim();
-  if (tipoFormacao) data.tipoCurso = tipoFormacao.trim(); // Mapeia para tipoCurso
-  if (duracao) data.duracao = duracao.trim();
-  if (statusInicial) data.status = statusInicial.trim(); // Mapeia para status
-  
-  if (metaHoras !== undefined) {
-    const parsed = toInt(metaHoras);
-    if (parsed !== null) data.metaHoras = parsed; // Mapeia para metaHoras
-  }
-
   try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ erro: "O ID do curso é obrigatório." });
+
+    const dadosValidados = editarCursoSchema.parse(req.body);
+
+    // Mapeamento dos campos do Body para as colunas do Schema do Prisma
+    const data = {};
+    if (dadosValidados.nome) data.nome = dadosValidados.nome;
+    if (dadosValidados.categoria) data.categoria = dadosValidados.categoria;
+    if (dadosValidados.tipoFormacao) data.tipoCurso = dadosValidados.tipoFormacao;
+    if (dadosValidados.duracao) data.duracao = dadosValidados.duracao;
+    if (dadosValidados.statusInicial) data.status = dadosValidados.statusInicial;
+    if (dadosValidados.metaHoras !== undefined) data.metaHoras = dadosValidados.metaHoras;
+
     const cursoAtualizado = await prisma.curso.update({
       where: { id: id.trim() },
       data,
     });
-    res.json(cursoAtualizado);
+
+    return res.json(cursoAtualizado);
   } catch (error) {
-    console.error("ERRO AO EDITAR:", error);
-    return handleControllerError(res, error, "Erro ao atualizar o curso.");
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        erro: "Falha na validação dos dados", 
+        detalhes: error.flatten().fieldErrors 
+      });
+    }
+    return res.status(500).json({ erro: "Erro ao atualizar o curso." });
   }
 };
 
 export const excluirCurso = async (req, res) => {
-  const { id } = req.params;
   try {
+    const { id } = req.params;
     await prisma.curso.delete({ where: { id: id.trim() } });
-    res.json({ message: "Curso excluído com sucesso!" });
+    return res.json({ message: "Curso excluído com sucesso!" });
   } catch (error) {
-    return handleControllerError(res, error, "Erro ao excluir o curso.");
+    return res.status(500).json({ erro: "Erro ao excluir o curso." });
   }
 };
 
 export const opcoesFiltros = async (req, res) => {
-  res.json({ status: ["Ativo", "Inativo"], tipos: ["Superior", "Técnico", "Extensão"] });
+  return res.json({ status: ["Ativo", "Inativo"], tipos: ["Superior", "Técnico", "Extensão"] });
 };
