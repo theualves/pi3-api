@@ -45,21 +45,14 @@ model Curso {
 
 model Aluno {
   id  String @id @default(uuid())
-  
-  // Otimizado para armazenar exatamente os 11 dígitos do CPF numérico
   cpf String @unique
-
   usuarioId String  @unique
   usuario   Usuario @relation("UsuarioAluno", fields: [usuarioId], references: [id])
-
   cursoId String
   curso   Curso  @relation("CursoAlunos", fields: [cursoId], references: [id])
-
-  // Alterado de Enum para String para o sistema não quebrar a cada novo semestre/ano
-  turma        String
+  turma        String?
   periodo      Int
-  cargaExigida Int
-
+  cargaExigida Int?
   atividades Atividade[]
   createdAt  DateTime    @default(now())
 
