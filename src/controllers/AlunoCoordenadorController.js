@@ -20,9 +20,7 @@ const criarAlunoSchema = z.object({
   
   senha: z.string().optional(),
   cursoId: z.string().uuid("ID do curso inválido"),
-  turma: z.string().min(1, "A turma é obrigatória"),
-  
-  // Transforma a entrada em número e limita o período (entre 1 e 12)
+  turma: z.string().optional(),
   periodo: z.coerce
     .number()
     .int("O período deve ser um número inteiro")
@@ -32,7 +30,7 @@ const criarAlunoSchema = z.object({
   cargaExigida: z.coerce
     .number()
     .int()
-    .min(1, "A carga horária deve ser maior que zero"),
+    .optional(),
 });
 
 export const criarAluno = async (req, res) => {
