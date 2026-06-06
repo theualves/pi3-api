@@ -114,7 +114,7 @@ const editarAlunoSchema = z.object({
   nome: z.string().min(3).optional(),
   email: z.string().email().optional(),
   cursoId: z.string().uuid().optional(),
-  turma: z.string().optional(),
+  turmaId: z.string().uuid().optional(),
   periodo: z.coerce.number().int().min(1).max(12).optional(),
   cargaExigida: z.coerce.number().int().optional(),
 });
@@ -134,7 +134,12 @@ export const atualizarAluno = async (req, res) => {
     }
 
     const alunoAtualizado = await prisma.$transaction(async (tx) => {
-      if (dadosValidados.nome || dadosValidados.email || dadosValidados.cursoId) {
+      // 1. Atualiza Usuário se necessário
+      if (
+        dadosValidados.nome ||
+        dadosValidados.email ||
+        dadosValidados.cursoId
+      ) {
         await tx.usuario.update({
           where: { id: alunoAtual.usuarioId },
           data: {
@@ -145,17 +150,19 @@ export const atualizarAluno = async (req, res) => {
         });
       }
 
+      // 2. Atualiza Aluno
       return tx.aluno.update({
         where: { id },
         data: {
           cursoId: dadosValidados.cursoId,
-          turma: dadosValidados.turma,
+          turmaId: dadosValidados.turmaId, 
           periodo: dadosValidados.periodo,
           cargaExigida: dadosValidados.cargaExigida,
         },
         include: {
           usuario: true,
           curso: true,
+          turma: true,
         },
       });
     });
@@ -163,7 +170,12 @@ export const atualizarAluno = async (req, res) => {
     return res.json(alunoAtualizado);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return res.status(400).json({ erro: "Dados inválidos", detalhes: err.flatten().fieldErrors });
+      return res
+        .status(400)
+        .json({
+          erro: "Dados inválidos",
+          detalhes: err.flatten().fieldErrors,
+        });
     }
     return res.status(500).json({ erro: "Erro ao atualizar aluno" });
   }

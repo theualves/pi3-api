@@ -46,7 +46,8 @@ model Curso {
 
 model Turma {
   id        String   @id @default(uuid())
-  nome      String   // Ex: "TAS048"
+  nome      String 
+  periodo   Int @default(1)
   cursoId   String
   curso     Curso    @relation(fields: [cursoId], references: [id])
   alunos    Aluno[]
