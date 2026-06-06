@@ -40,7 +40,19 @@ model Curso {
 
   usuarios Usuario[] @relation("CursoUsuarios")
   alunos   Aluno[]   @relation("CursoAlunos")
+  turmas    Turma[]
   limites  Limite[]
+}
+
+model Turma {
+  id        String   @id @default(uuid())
+  nome      String   // Ex: "TAS048"
+  cursoId   String
+  curso     Curso    @relation(fields: [cursoId], references: [id])
+  alunos    Aluno[]
+  createdAt DateTime @default(now())
+
+  @@index([cursoId])
 }
 
 model Aluno {
@@ -50,13 +62,14 @@ model Aluno {
   usuario   Usuario @relation("UsuarioAluno", fields: [usuarioId], references: [id])
   cursoId String
   curso   Curso  @relation("CursoAlunos", fields: [cursoId], references: [id])
-  turma        String?
+  turmaId      String?
+  turma        Turma?   @relation(fields: [turmaId], references: [id])
   periodo      Int
   cargaExigida Int?
   atividades Atividade[]
   createdAt  DateTime    @default(now())
 
-  @@index([turma])
+  @@index([turmaId])
 }
 
 model Atividade {
