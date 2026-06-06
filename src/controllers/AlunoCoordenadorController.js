@@ -125,3 +125,89 @@ export const listarAlunos = async (req, res) => {
 export const gerarSenhaAutomatica = async (_req, res) => {
   return res.json({ senha: gerarSenha() });
 };
+
+
+const editarAlunoSchema = z.object({
+  nome: z.string().min(3).optional(),
+  email: z.string().email().optional(),
+  cursoId: z.string().uuid().optional(),
+  turma: z.string().optional(),
+  periodo: z.coerce.number().int().min(1).max(12).optional(),
+  cargaExigida: z.coerce.number().int().optional(),
+});
+
+export const atualizarAluno = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const dadosValidados = editarAlunoSchema.parse(req.body);
+    
+    const alunoAtual = await prisma.aluno.findUnique({
+      where: { id },
+      select: { usuarioId: true }
+    });
+
+    if (!alunoAtual) {
+      return res.status(404).json({ erro: "Aluno não encontrado" });
+    }
+
+    const alunoAtualizado = await prisma.$transaction(async (tx) => {
+      if (dadosValidados.nome || dadosValidados.email || dadosValidados.cursoId) {
+        await tx.usuario.update({
+          where: { id: alunoAtual.usuarioId },
+          data: {
+            nome: dadosValidados.nome,
+            email: dadosValidados.email,
+            cursoId: dadosValidados.cursoId,
+          }
+        });
+      }
+
+      return tx.aluno.update({
+        where: { id },
+        data: {
+          cursoId: dadosValidados.cursoId,
+          turma: dadosValidados.turma,
+          periodo: dadosValidados.periodo,
+          cargaExigida: dadosValidados.cargaExigida,
+        },
+        include: {
+          usuario: true,
+          curso: true,
+        }
+      });
+    });
+
+    return res.json(alunoAtualizado);
+
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ erro: "Dados inválidos", detalhes: err.flatten().fieldErrors });
+    }
+    return res.status(500).json({ erro: "Erro ao atualizar aluno" });
+  }
+};
+
+export const excluirAluno = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const aluno = await prisma.aluno.findUnique({
+      where: { id },
+      select: { usuarioId: true }
+    });
+
+    if (!aluno) {
+      return res.status(404).json({ erro: "Aluno não encontrado" });
+    }
+
+    await prisma.$transaction([
+      prisma.aluno.delete({ where: { id } }),
+      prisma.usuario.delete({ where: { id: aluno.usuarioId } })
+    ]);
+
+    return res.status(204).send();
+
+  } catch (err) {
+    return res.status(500).json({ erro: "Erro ao excluir o aluno" });
+  }
+};
