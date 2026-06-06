@@ -12,6 +12,7 @@ import {
   excluirSolicitacaoAluno,
   obterDetalhesSolicitacao,
 } from "../controllers/AlunoPortalController.js";
+import { autenticarToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 const DIRETORIO_UPLOADS = path.resolve(process.cwd(), "uploads", "comprovantes");
@@ -30,7 +31,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 }, // Ajustado para 5MB conforme sua mensagem de erro
   fileFilter: (_req, file, cb) => {
     if (!TIPOS_PERMITIDOS.has(file.mimetype)) {
       return cb(new Error("Formato inválido. Envie PDF, JPG ou PNG."));
@@ -44,23 +45,24 @@ const uploadComprovante = (req, res, next) => {
     if (!erro) {
       return next();
     }
-
     if (erro instanceof multer.MulterError && erro.code === "LIMIT_FILE_SIZE") {
       return res.status(400).json({ error: "O comprovante deve ter no máximo 5MB." });
     }
-
     return res.status(400).json({ error: erro.message || "Erro ao processar arquivo enviado." });
   });
 };
 
-router.get("/:alunoId/dashboard", obterDashboardAluno);
-router.get("/:alunoId/cursos", listarMeusCursos);
-router.get("/:alunoId/solicitacoes", listarMinhasSolicitacoes);
-router.get("/:alunoId/historico", listarHistoricoAluno);
-router.post("/:alunoId/solicitacoes", uploadComprovante, criarNovaSolicitacaoAluno);
-router.put("/:alunoId/solicitacoes/:atividadeId", uploadComprovante, editarSolicitacaoAluno);
-router.delete("/:alunoId/solicitacoes/:atividadeId", excluirSolicitacaoAluno);
-router.get("/:alunoId/solicitacoes/:atividadeId", obterDetalhesSolicitacao);
 
+router.use(autenticarToken);
+
+
+router.get("/dashboard", obterDashboardAluno);
+router.get("/cursos", listarMeusCursos);
+router.get("/solicitacoes", listarMinhasSolicitacoes);
+router.get("/historico", listarHistoricoAluno);
+router.post("/solicitacoes", uploadComprovante, criarNovaSolicitacaoAluno);
+router.put("/solicitacoes/:atividadeId", uploadComprovante, editarSolicitacaoAluno);
+router.delete("/solicitacoes/:atividadeId", excluirSolicitacaoAluno);
+router.get("/solicitacoes/:atividadeId", obterDetalhesSolicitacao);
 
 export default router;

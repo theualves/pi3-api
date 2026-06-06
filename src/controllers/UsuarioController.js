@@ -1,5 +1,4 @@
 import { prisma } from "../lib/prisma.js";
-import crypto from "crypto";
 import bcrypt from "bcrypt"; 
 import {
   isNonEmptyString,
@@ -10,7 +9,6 @@ import {
 import { handleControllerError } from "../utils/apiErrors.js";
 
 export const cadastrarAluno = async (req, res) => {
-  
   const { nome, email, senha, cpf, cursoId, periodo } = req.body;
 
   const validationErrors = [];
@@ -27,12 +25,9 @@ export const cadastrarAluno = async (req, res) => {
     return sendValidationError(res, validationErrors);
 
   try {
-    
     const senhaHash = await bcrypt.hash(senha.trim(), 10);
 
-    
     const resultado = await prisma.$transaction(async (tx) => {
-      
       const usuario = await tx.usuario.create({
         data: {
           nome: nome.trim(),
@@ -44,15 +39,14 @@ export const cadastrarAluno = async (req, res) => {
         },
       });
 
-      
       const aluno = await tx.aluno.create({
         data: {
-          cpf: cpf.trim(),
+          cpf: cpf.trim().replace(/\D/g, ""),
           usuarioId: usuario.id,
           cursoId: cursoId,
           periodo: toInt(periodo) || 1,
           cargaExigida: 100, 
-          turma: null, 
+          turmaId: req.body.turmaId || null, 
         },
       });
 
@@ -74,7 +68,6 @@ export const cadastrarAluno = async (req, res) => {
   }
 };
 
-
 export const criarUsuario = async (req, res) => {
   const { nome, email, senha, tipo, cursoId, status } = req.body;
 
@@ -87,15 +80,14 @@ export const criarUsuario = async (req, res) => {
   if (validationErrors.length > 0) return sendValidationError(res, validationErrors);
 
   try {
-    
     const senhaHash = await bcrypt.hash(senha.trim(), 10);
 
     const novoUsuario = await prisma.usuario.create({
       data: {
         nome: nome.trim(),
         email: email.trim(),
-        senha: senhaHash, // Salva o hash, não o texto puro
-        tipo: tipo.trim().toUpperCase(), // Garante que bata com o Enum (ex: COORDENADOR)
+        senha: senhaHash, 
+        tipo: tipo.trim().toUpperCase(), 
         cursoId: tipo.toUpperCase() === "GESTOR" ? null : (isNonEmptyString(cursoId) ? cursoId.trim() : null),
         status: isNonEmptyString(status) ? status.trim() : "Ativo",
       },
@@ -110,7 +102,6 @@ export const criarUsuario = async (req, res) => {
   }
 };
 
-
 export const listarUsuarios = async (req, res) => {
   const { tipo, nome, email, cursoId } = req.query;
   try {
@@ -123,7 +114,7 @@ export const listarUsuarios = async (req, res) => {
       },
       include: {
         curso: { select: { nome: true } },
-        aluno: true // 👈 ADICIONE ESTA LINHA para o CPF e Período aparecerem no Front!
+        aluno: true 
       },
       orderBy: { createdAt: "desc" },
     });
@@ -133,12 +124,11 @@ export const listarUsuarios = async (req, res) => {
   }
 };
 
-
 export const contarUsuarios = async (req, res) => {
   const { tipo } = req.query;
   try {
     const total = await prisma.usuario.count({
-      where: { tipo: tipo ? tipo.toUpperCase() : undefined },
+      where: { tipo: tipo ? tipo.toUpperCase() : undefined }
     });
     res.json({ total });
   } catch (error) {

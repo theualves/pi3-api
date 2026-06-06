@@ -63,7 +63,10 @@ export const listarAtividades = async (req, res) => {
 
 export const validarAtividade = async (req, res) => {
   const { id } = req.params;
-  const { status, horasAprovadas, motivo, validadorId } = req.body;
+  const { status, horasAprovadas, motivo } = req.body;
+  
+  // Captura o ID do Coordenador/Validador diretamente do token JWT assinado
+  const validadorId = req.usuario.id;
 
   try {
     const atividade = await prisma.atividade.update({
@@ -72,7 +75,7 @@ export const validarAtividade = async (req, res) => {
         status,
         horasAprovadas: status === "APROVADA" ? Number(horasAprovadas || 0) : 0,
         motivo: motivo || null,
-        validadaPorId: validadorId || null,
+        validadaPorId: validadorId,
         validadaEm: new Date(),
       },
       include: {

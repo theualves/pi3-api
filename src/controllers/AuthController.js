@@ -1,14 +1,14 @@
 import { prisma } from "../lib/prisma.js";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { enviarEmailRecuperacao } from "../services/EmailService.js";
-
 
 export const login = async (req, res) => {
   const { email, senha } = req.body;
 
   try {
-    // 1. Alterado para incluir os dados do Aluno na busca
+    // Busca o usuário incluindo os dados de vínculo do Aluno
     const usuario = await prisma.usuario.findUnique({
       where: { email },
       include: { aluno: true }, 
@@ -25,13 +25,24 @@ export const login = async (req, res) => {
       return res.status(401).json({ error: "E-mail ou senha inválidos." });
     }
 
+  
+    const token = jwt.sign(
+      { 
+        id: usuario.id, 
+        tipo: usuario.tipo, 
+        idAluno: usuario.aluno?.id || null 
+      },
+     process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
+
     res.json({
       message: "Login realizado com sucesso!",
+      token, // O frontend armazena este token para requisições futuras
       usuario: {
-        id: usuario.id, // ID do Usuário (para login/perfil)
+        id: usuario.id, 
         nome: usuario.nome,
         tipo: usuario.tipo,
-        // 2. Enviando o ID do Aluno para o Frontend salvar na mochila
         idAluno: usuario.aluno?.id || null,
       },
     });
