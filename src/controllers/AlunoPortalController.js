@@ -72,7 +72,6 @@ const formatarSolicitacao = (atividade) => ({
   categoria: atividade.categoria,
   dataInicio: atividade.dataInicio,
   cargaHoraria: atividade.horasSolicitadas,
-  status: activity.status,
   status: atividade.status,
   motivoRecusa: atividade.motivo,
   dataEnvio: atividade.createdAt,
