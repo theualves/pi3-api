@@ -53,7 +53,7 @@ export const listarTurmas = async (req, res) => {
 export const atualizarTurma = async (req, res) => {
   try {
     const { id } = req.params;
-    const dadosValidados = turmaSchema.parse(req.body);
+    const dadosValidados = criarTurmaSchema.parse(req.body);
 
     // Usa transação para garantir que, se a turma mudar de período, 
     // TODOS os alunos dela mudem juntos automaticamente!
