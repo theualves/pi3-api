@@ -1,5 +1,6 @@
 import express from 'express';
 import { criarTurma, listarTurmas, atualizarTurma, excluirTurma} from "../controllers/TurmaController.js";
+import { autenticarToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 router.post('/', criarTurma);
