@@ -68,7 +68,7 @@ export const solicitarRecuperacao = async (req, res) => {
       data: { resetToken: token, resetTokenExpira: expira },
     });
 
-    const resetLink = `http://localhost:3000/redefinir-senha?token=${token}`;
+    const resetLink = `https://senachoras.vercel.app//redefinir-senha?token=${token}`;
 
     await enviarEmailRecuperacao(usuario.email, usuario.nome, resetLink);
 
