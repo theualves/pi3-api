@@ -1,18 +1,16 @@
 import nodemailer from 'nodemailer';
 
-// Ajuste no transporter para evitar bloqueios de segurança
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: process.env.EMAIL_PORT == 465, // True para 465, False para 587
+  host: "smtp.gmail.com", 
+  port: 465,            
+  secure: true,         
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  family: 4, 
-  tls: {
-    rejectUnauthorized: false 
-  },
+  family: 4,            
+  logger: true,          
+  debug: true            
 });
 
 export const enviarEmailNotificacao = async (destinatario, nomeAluno, status, motivo = "") => {
