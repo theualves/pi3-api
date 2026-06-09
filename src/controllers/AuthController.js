@@ -61,33 +61,66 @@ export const solicitarRecuperacao = async (req, res) => {
     }
 
     const token = crypto.randomBytes(32).toString("hex");
-    const expira = new Date(Date.now() + 3600000); // 1h
+    const expira = new Date(Date.now() + 3600000); // Validade de 1h
 
     await prisma.usuario.update({
       where: { id: usuario.id },
       data: { resetToken: token, resetTokenExpira: expira },
     });
 
-    const resetLink = `https://senachoras.vercel.app//redefinir-senha?token=${token}`;
+    // 👉 MUDANÇA: Removida a barra dupla (//) do link
+    const resetLink = `https://senachoras.vercel.app/redefinir-senha?token=${token}`;
 
     await enviarEmailRecuperacao(usuario.email, usuario.nome, resetLink);
 
-    console.log("TOKEN GERADO:", token);
-    res.json({ message: "Link de recuperação gerado no console." });
+    console.log("✅ TOKEN GERADO NO BANCO:", token);
+    res.json({ message: "Link de recuperação gerado e enviado." });
   } catch (error) {
+    console.error("Erro no solicitarRecuperacao:", error);
     res.status(500).json({ error: "Erro ao solicitar recuperação." });
+  }
+};
+
+export const validarToken = async (req, res) => {
+  // 👉 MUDANÇA: Aceita o token tanto via URL (GET) quanto via Body (POST)
+  const token = req.query.token || req.body.token || req.params.token;
+  
+  if (!token) return res.status(400).json({ error: "Token não enviado na requisição." });
+
+  try {
+    // Busca apenas pelo token exato
+    const usuario = await prisma.usuario.findFirst({
+      where: { resetToken: token },
+    });
+
+    if (!usuario) return res.status(400).json({ error: "Token inválido ou não existe." });
+
+    // 👉 MUDANÇA: Verificação de expiração feita no Node.js (Fura o bug do Fuso Horário)
+    if (usuario.resetTokenExpira < new Date()) {
+      return res.status(400).json({ error: "O link de recuperação expirou." });
+    }
+
+    res.json({ valid: true });
+  } catch (error) {
+    console.error("Erro no validarToken:", error);
+    res.status(500).json({ error: "Erro interno ao validar token." });
   }
 };
 
 export const redefinirSenha = async (req, res) => {
   const { token, novaSenha } = req.body;
+  
   try {
     const usuario = await prisma.usuario.findFirst({
-      where: { resetToken: token, resetTokenExpira: { gte: new Date() } },
+      where: { resetToken: token },
     });
 
-    if (!usuario)
-      return res.status(400).json({ error: "Token inválido ou expirado." });
+    if (!usuario) return res.status(400).json({ error: "Token inválido." });
+
+    // Revalida a data aqui também por segurança
+    if (usuario.resetTokenExpira < new Date()) {
+      return res.status(400).json({ error: "O link expirou." });
+    }
 
     const senhaHash = await bcrypt.hash(novaSenha, 10);
 
@@ -96,24 +129,9 @@ export const redefinirSenha = async (req, res) => {
       data: { senha: senhaHash, resetToken: null, resetTokenExpira: null },
     });
 
-    res.json({ message: "Senha redefinida com sucesso agora com hash!" });
+    res.json({ message: "Senha redefinida com sucesso!" });
   } catch (error) {
-    res.status(500).json({ error: "Erro ao redefinir senha." });
-  }
-};
-
-export const validarToken = async (req, res) => {
-  const { token } = req.query;
-  try {
-    const usuario = await prisma.usuario.findFirst({
-      where: { resetToken: token, resetTokenExpira: { gte: new Date() } },
-    });
-
-    if (!usuario)
-      return res.status(400).json({ error: "Token inválido ou expirado." });
-
-    res.json({ valid: true });
-  } catch (error) {
-    res.status(500).json({ error: "Erro ao validar token." });
+    console.error("Erro no redefinirSenha:", error);
+    res.status(500).json({ error: "Erro interno ao redefinir senha." });
   }
 };
