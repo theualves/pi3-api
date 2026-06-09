@@ -1,17 +1,4 @@
-import nodemailer from 'nodemailer';
-
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com", 
-  port: 465,            
-  secure: true,         
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  family: 4,            
-  logger: true,          
-  debug: true            
-});
+// ❌ Removemos a importação do 'nodemailer' e o 'transporter'
 
 export const enviarEmailNotificacao = async (destinatario, nomeAluno, status, motivo = "") => {
   const assunto = status === "APROVADA" ? "✅ Atividade Aprovada!" : "❌ Ajuste Necessário na Atividade";
@@ -30,16 +17,25 @@ export const enviarEmailNotificacao = async (destinatario, nomeAluno, status, mo
   `;
 
   try {
-    await transporter.sendMail({
-      // 👉 MUDANÇA: Usando o seu e-mail real do .env para não ser barrado como Spam
-      from: `"Sistema Senac" <${process.env.EMAIL_USER}>`,
-      to: destinatario,
-      subject: assunto,
-      html: corpo,
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "api-key": process.env.BREVO_API_KEY, 
+      },
+      body: JSON.stringify({
+        sender: { name: "Sistema Senac", email: process.env.EMAIL_USER },
+        to: [{ email: destinatario }],
+        subject: assunto,
+        htmlContent: corpo,
+      }),
     });
+
+    if (!response.ok) throw new Error("Falha na API do Brevo");
     console.log(`📧 E-mail de notificação enviado para: ${destinatario}`);
   } catch (error) {
-    console.error("❌ Falha ao enviar e-mail:", error);
+    console.error("❌ Falha ao enviar e-mail de notificação:", error);
   }
 };
 
@@ -136,13 +132,28 @@ export const enviarEmailRecuperacao = async (destinatario, nomeUsuario, link) =>
   `;
 
   try {
-    const info = await transporter.sendMail({
-      from: `"Portal de Atividades" <${process.env.EMAIL_USER}>`,
-      to: destinatario,
-      subject: "Recuperação de Senha - Portal Senac",
-      html: corpoHtml,
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "api-key": process.env.BREVO_API_KEY, 
+      },
+      body: JSON.stringify({
+        sender: { name: "Portal de Atividades", email: process.env.EMAIL_USER },
+        to: [{ email: destinatario }],
+        subject: "Recuperação de Senha - Portal Senac",
+        htmlContent: corpoHtml,
+      }),
     });
-    console.log("✅ E-mail formatado enviado! ID:", info.messageId);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Erro interno do Brevo:", errorData);
+      throw new Error("Falha na API");
+    }
+
+    console.log("✅ E-mail formatado enviado via Brevo!");
   } catch (error) {
     console.error("❌ ERRO FATAL AO ENVIAR RECUPERAÇÃO:", error);
     throw new Error("Falha no serviço de e-mail"); 
