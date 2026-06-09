@@ -82,27 +82,40 @@ export const solicitarRecuperacao = async (req, res) => {
 };
 
 export const validarToken = async (req, res) => {
-  // 👉 MUDANÇA: Aceita o token tanto via URL (GET) quanto via Body (POST)
-  const token = req.query.token || req.body.token || req.params.token;
+  console.log("=== 🔍 INICIANDO VALIDAÇÃO DO TOKEN ===");
+  console.log("📦 Query da URL:", req.query);
+  console.log("📦 Corpo (Body):", req.body);
   
-  if (!token) return res.status(400).json({ error: "Token não enviado na requisição." });
+  const token = req.query.token || req.body.token || req.params.token;
+  console.log("🔑 Token extraído pelo backend:", token);
+
+  if (!token) {
+    console.log("❌ FALHA: O Next.js não enviou o token pro backend!");
+    return res.status(400).json({ error: "Token não enviado na requisição." });
+  }
 
   try {
-    // Busca apenas pelo token exato
     const usuario = await prisma.usuario.findFirst({
       where: { resetToken: token },
     });
 
-    if (!usuario) return res.status(400).json({ error: "Token inválido ou não existe." });
-
-    // 👉 MUDANÇA: Verificação de expiração feita no Node.js (Fura o bug do Fuso Horário)
-    if (usuario.resetTokenExpira < new Date()) {
-      return res.status(400).json({ error: "O link de recuperação expirou." });
+    if (!usuario) {
+      console.log("❌ FALHA: O token chegou, mas não existe no MySQL.");
+      return res.status(400).json({ error: "Token inválido ou não existe." });
     }
 
+    console.log("⏳ Hora de Agora (Render):", new Date());
+    console.log("⏳ Hora de Expiração (Banco):", usuario.resetTokenExpira);
+
+    if (usuario.resetTokenExpira < new Date()) {
+      console.log("❌ FALHA: O token venceu (Problema de Fuso Horário).");
+      return res.status(400).json({ error: "O link expirou." });
+    }
+
+    console.log("✅ SUCESSO: Token 100% válido!");
     res.json({ valid: true });
   } catch (error) {
-    console.error("Erro no validarToken:", error);
+    console.error("❌ ERRO INTERNO:", error);
     res.status(500).json({ error: "Erro interno ao validar token." });
   }
 };
