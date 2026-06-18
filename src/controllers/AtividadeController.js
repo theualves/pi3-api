@@ -90,7 +90,6 @@ export const validarAtividade = async (req, res) => {
       },
     });
 
-    // DISPARO DO E-MAIL (O sistema não trava se o e-mail falhar)
     if (atividade.aluno?.usuario?.email) {
       enviarEmailNotificacao(
         atividade.aluno.usuario.email,
