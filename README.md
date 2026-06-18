@@ -237,6 +237,7 @@ Os testes da aplicação ficam organizados na pasta:
 - Filipe Xavier dos Santos
 - Maria Cecília de Lima e Silva
 - Maria Clara Moutinho Albuquerque Silva
+- Maria Eduarda Pereira Vilarim
 - Matheus Alves de Arruda
 
 ---
